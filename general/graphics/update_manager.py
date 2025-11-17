@@ -42,6 +42,11 @@ class UpdateManager:
                 pass
 
         if was_moving and not self.parent.player.moving:
+            try:
+                if self.parent.game_manager and hasattr(self.parent.game_manager, 'on_player_step_completed'):
+                    self.parent.game_manager.on_player_step_completed()
+            except Exception:
+                pass
             px = int(self.parent.player.cell_x)
             py = int(self.parent.player.cell_y)
 

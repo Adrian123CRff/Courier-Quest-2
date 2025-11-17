@@ -9,7 +9,7 @@ class UndoSystem:
     Sistema para deshacer acciones del jugador.
     Guarda estados anteriores del juego en una pila.
     """
-
+    
     def __init__(self, max_steps: int = 50):
         self.undo_stack = Stack()
         self.max_steps = max_steps
@@ -77,7 +77,7 @@ class UndoSystem:
             'money': player_state.money,
             'stamina': player_state.player_stats.stamina,
             'reputation': player_state.player_stats.reputation,
-            'inventory': [copy.copy(job) for job in inventory._deque_values()],
+            'inventory': [copy.copy(job) for job in inventory.get_deque_values()],
             'inventory_weight': inventory.current_weight,
             'current_time': player_state.current_time,
             'weather_state': {
@@ -112,11 +112,14 @@ class UndoSystem:
         # Restaurar inventario
         # Necesitamos reconstruir el inventario usando los métodos existentes
         inventory_items = state['inventory']
-        inventory.deque = Deque()  # Reiniciar inventario
+        inventory.deque = Deque()
         inventory.current_weight = 0.0
-
         for job in inventory_items:
-            inventory.add(job)
+            inventory.deque.append(job)
+            try:
+                inventory.current_weight += float(inventory._job_weight(job))
+            except Exception:
+                pass
 
         # Restaurar clima WeatherMarkov
         weather_state_data = state['weather_state']
@@ -159,3 +162,4 @@ class UndoSystem:
     def get_history_size(self) -> int:
         """Retorna cuántos estados hay guardados."""
         return len(self.undo_stack)
+

@@ -32,6 +32,7 @@ class GameManager:
         # undo / player_manager (vista)
         self.undo_system = None
         self.player_manager = None
+        self._cell_before_move = None
 
         # job checks
         self._last_job_check: float = 0.0
@@ -584,15 +585,47 @@ class GameManager:
             return False
 
     def handle_player_movement(self, dx: int, dy: int):
-        """Guardar estado y delegar movimiento al player_manager (si existe)."""
-        self.save_current_state()
+        """Delegar movimiento y marcar celda previa para deshacer por paso."""
+        try:
+            if self.player_manager:
+                self._cell_before_move = (int(self.player_manager.cell_x), int(self.player_manager.cell_y))
+        except Exception:
+            self._cell_before_move = None
+
+        moved = False
         if self.player_manager and hasattr(self.player_manager, "move_by"):
             try:
-                self.player_manager.move_by(dx, dy, self.game_map)
+                moved = bool(self.player_manager.move_by(dx, dy, self.game_map))
             except Exception as e:
                 print(f"[GAME_MANAGER] Error moviendo player_manager: {e}")
+                moved = False
+
+    def on_player_step_completed(self):
+        if not self.undo_system or not self.player_state or not self.player_manager:
+            return
+        prev = self._cell_before_move
+        if prev is None:
+            return
+        try:
+            snap = self.undo_system.get_state_snapshot(
+                self.player_state,
+                self.player_state.inventory,
+                self.player_state.weather_system,
+                self.player_manager
+            )
+            px, py = prev
+            try:
+                ppx, ppy = self.player_manager.cell_to_pixel(px, py)
+            except Exception:
+                ppx, ppy = snap.get('player_pixel_position', (self.player_manager.pixel_x, self.player_manager.pixel_y))
+            snap['player_position'] = (px, py)
+            snap['player_pixel_position'] = (ppx, ppy)
+            self.undo_system.save_state(snap)
+        except Exception as e:
+            print(f"[GAME_MANAGER] Error registrando paso: {e}")
 
     # ---------------- Game over ----------------
     def game_over(self, message: str):
         self.logger.info(f"Game over: {message}")
         self.is_running = False
+
