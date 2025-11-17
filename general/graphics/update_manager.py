@@ -41,6 +41,12 @@ class UpdateManager:
             except Exception:
                 pass
 
+        try:
+            if hasattr(self.parent, 'cpu_agent') and self.parent.cpu_agent:
+                self.parent.cpu_agent.update(dt)
+        except Exception:
+            pass
+
         if was_moving and not self.parent.player.moving:
             try:
                 if self.parent.game_manager and hasattr(self.parent.game_manager, 'on_player_step_completed'):

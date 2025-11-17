@@ -32,6 +32,7 @@ from .drawing_utils import _draw_rect_lrbt_filled, _draw_rect_lrbt_outline
 
 from ..game.game_manager import GameManager
 from ..game.jobs_manager import JobManager
+from ..ia.cpu_easy import EasyCPUCourier, JobsAPI, WorldAPI
 
 # Intento de import (para partidas nuevas) — no falla si no existe
 try:
@@ -213,6 +214,8 @@ class MapPlayerView(View):
         self._coerce_xy = self.coords.coerce_xy
         self._get_job_payout = self.payouts.get_job_payout
 
+        self.cpu_agent = None
+
     # ---------- Inventario para partidas nuevas y cargadas ----------
     def _ensure_inventory(self):
         try:
@@ -382,6 +385,101 @@ class MapPlayerView(View):
 
             self.set_game_systems(self.game_manager, self.job_manager)
             print("🎮 SISTEMAS DE JUEGO INICIALIZADOS")
+            try:
+                class _CpuJobsAdapter(JobsAPI):
+                    def __init__(self, view):
+                        self.view = view
+                    def pick_random_available(self, rng):
+                        jm = self.view.job_manager
+                        gm = self.view.game_manager
+                        if not jm:
+                            return None
+                        try:
+                            now = gm.get_game_time() if gm and hasattr(gm, 'get_game_time') else 0.0
+                        except Exception:
+                            now = 0.0
+                        av = jm.get_available_jobs(now)
+                        av = [j for j in av if not j.rejected and not j.completed]
+                        if not av:
+                            return None
+                        j = rng.choice(av)
+                        return getattr(j, 'id', None)
+                    def get_pickups_at(self, cell):
+                        jm = self.view.job_manager
+                        if not jm:
+                            return []
+                        x, y = int(cell[0]), int(cell[1])
+                        out = []
+                        for j in jm.all_jobs():
+                            if getattr(j, 'completed', False) or getattr(j, 'rejected', False):
+                                continue
+                            try:
+                                px, py = j.pickup
+                            except Exception:
+                                px, py = None, None
+                            if px == x and py == y:
+                                out.append(JobsAPI._Job(getattr(j, 'id', None)))
+                        return out
+                    def is_dropoff_here(self, job_id, cell):
+                        jm = self.view.job_manager
+                        j = jm.get_job(job_id) if jm else None
+                        if not j:
+                            return False
+                        try:
+                            dx, dy = j.dropoff
+                        except Exception:
+                            dx, dy = None, None
+                        return dx == int(cell[0]) and dy == int(cell[1])
+                    def pickup(self, job_id):
+                        jm = self.view.job_manager
+                        j = jm.get_job(job_id) if jm else None
+                        if not j:
+                            return False
+                        try:
+                            if not getattr(j, 'accepted', False):
+                                jm.accept_job(job_id)
+                            j.picked_up = True
+                            j.dropoff_visible = True
+                            return True
+                        except Exception:
+                            return False
+                    def dropoff(self, job_id):
+                        jm = self.view.job_manager
+                        j = jm.get_job(job_id) if jm else None
+                        if not j:
+                            return None
+                        try:
+                            if not getattr(j, 'picked_up', False):
+                                return None
+                            base = 0.0
+                            try:
+                                base = float(getattr(j, 'raw', {}).get('payout', getattr(j, 'payout', 0.0) or 0.0))
+                            except Exception:
+                                base = 0.0
+                            j.completed = True
+                            return base
+                        except Exception:
+                            return None
+                class _CpuWorldAdapter(WorldAPI):
+                    def base_move_cost(self):
+                        return 1.0
+                    def reputation_gain_on_delivery(self):
+                        return 1.0
+                start_x = int(self.game_map.width // 2) + 1
+                start_y = int(self.game_map.height // 2)
+                sx, sy = start_x, start_y
+                try:
+                    if not self.game_map.is_walkable(sx, sy):
+                        for dx, dy in [(0,1),(0,-1),(1,0),(-1,0),(1,1),(-1,1),(1,-1),(-1,-1)]:
+                            tx, ty = start_x+dx, start_y+dy
+                            if 0 <= tx < self.game_map.width and 0 <= ty < self.game_map.height and self.game_map.is_walkable(tx, ty):
+                                sx, sy = tx, ty
+                                break
+                except Exception:
+                    pass
+                self.cpu_agent = EasyCPUCourier(self.game_map.is_walkable, _CpuJobsAdapter(self), _CpuWorldAdapter(), initial_grid_pos=(sx, sy))
+            except Exception as e:
+                print(f"[CPU] Error inicializando CPU: {e}")
         except Exception as e:
             print(f"Error inicializando sistemas de juego: {e}")
 

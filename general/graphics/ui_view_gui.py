@@ -650,18 +650,26 @@ class NewGameMenuView(arcade.View):
         for i in range(1, 4):
             slot = f"slot{i}.sav"
             txt = f"Slot {i}: {'Ocupado' if slot in self.saves else 'Vacío'}"
-            btn = arcade.gui.UIFlatButton(text=txt, width=380); v_box.add(btn)
-        @btn.event("on_click")
-        def on_click(event, slot=slot):
-            _play_click()
-            self.confirm_overwrite(slot)
+            btn = arcade.gui.UIFlatButton(text=txt, width=380)
+            v_box.add(btn)
+            @btn.event("on_click")
+            def on_click(event, s=slot):
+                _play_click()
+                if s in self.saves:
+                    self.confirm_overwrite(s)
+                else:
+                    self.create_game(s)
 
         new_slot_btn = arcade.gui.UIFlatButton(text="Crear Nuevo Slot", width=380)
         v_box.add(new_slot_btn)
         @new_slot_btn.event("on_click")
         def on_new_slot(event):
             _play_click()
-            new_index = len(self.saves) + 1
+            try:
+                indices = [int(n.replace("slot", "").replace(".sav", "")) for n in self.saves if n.startswith("slot")]
+                new_index = (max(indices) + 1) if indices else 1
+            except Exception:
+                new_index = len(self.saves) + 1
             new_slot = f"slot{new_index}.sav"
             self.create_game(new_slot)
 
