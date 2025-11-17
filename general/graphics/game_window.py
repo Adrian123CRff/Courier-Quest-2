@@ -35,7 +35,7 @@ from ..game.jobs_manager import JobManager
 
 # Intento de import (para partidas nuevas) — no falla si no existe
 try:
-    from game.inventory import Inventory
+    from ..game.inventory import Inventory
 except Exception:
     Inventory = None
 
@@ -197,6 +197,10 @@ class MapPlayerView(View):
         self.undo_button_visible = False
         
         # Overlay de fin de juego
+        self._show_endgame_overlay = False
+        self._endgame_title = ""
+        self._endgame_reason = ""
+        # Compatibilidad
         self._show_lose_overlay = False
         self._lose_reason = ""
 
@@ -1035,7 +1039,7 @@ class MapPlayerView(View):
         _draw_rect_lrbt_outline(left, right, bottom, top, (120, 100, 220), 3)
         Text("❌ Derrota", left + 24, top - 40, (255, 120, 120), 24, bold=True).draw()
         Text(self._lose_reason or "", left + 24, top - 70, (230, 236, 245), 14).draw()
-        Text("Presiona cualquier tecla para volver al menú", left + 24, bottom + 28, (200, 210, 220), 12).draw()
+        Text("Presiona cualquier tecla para volver al menú principal", left + 24, bottom + 28, (200, 210, 220), 12).draw()
 
     def _draw_time_panel(self):
         if not self.game_manager:
@@ -1081,13 +1085,16 @@ class MapPlayerView(View):
     def on_key_press(self, key: int, modifiers: int) -> None:
         self._last_input_time = time.time()
 
-        if self._show_lose_overlay:
-            # cualquier tecla: volver al menú
+        if self._show_endgame_overlay or self._show_lose_overlay:
             try:
-                from .ui_view_gui import GameMenuView
-                self.window.show_view(GameMenuView())
+                from .ui_view_gui import MainMenuView, slide_to
+                slide_to(self, MainMenuView(endgame_title=getattr(self, "_endgame_title", ""), endgame_reason=getattr(self, "_endgame_reason", "")))
             except Exception:
-                pass
+                try:
+                    from .ui_view_gui import MainMenuView
+                    self.window.show_view(MainMenuView(endgame_title=getattr(self, "_endgame_title", ""), endgame_reason=getattr(self, "_endgame_reason", "")))
+                except Exception:
+                    pass
             return
 
         # Eliminado: snapshots de UndoManager para evitar conflictos con GameManager.undo
@@ -1397,6 +1404,8 @@ class MapPlayerView(View):
 
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
         """Maneja clics del mouse para botones de UI"""
+        if self._show_endgame_overlay or self._show_lose_overlay:
+            return
         if button == arcade.MOUSE_BUTTON_LEFT:
             # Botón de deshacer
             if self.undo_button_rect:

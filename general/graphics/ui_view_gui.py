@@ -407,8 +407,11 @@ def build_save_snapshot(game_view, state_obj_or_dict):
 # Vista: Menú Principal
 # ========================
 class MainMenuView(arcade.View):
-    def __init__(self):
+    def __init__(self, endgame_title: str = None, endgame_reason: str = None):
         super().__init__()
+        self.endgame_title = endgame_title or ""
+        self.endgame_reason = endgame_reason or ""
+        self._endgame_until = time.time() + 5.0 if (self.endgame_title or self.endgame_reason) else 0.0
         self.manager = arcade.gui.UIManager()
         v_box = arcade.gui.UIBoxLayout(vertical=True, space_between=18)
 
@@ -441,6 +444,29 @@ class MainMenuView(arcade.View):
         draw_header_and_subtitle(w, h)
         draw_center_panel(w, h)
         draw_footer_help(w, h)
+        try:
+            if time.time() <= self._endgame_until and (self.endgame_title or self.endgame_reason):
+                panel_w = min(680, int(w * 0.8))
+                panel_h = 120
+                cx = w // 2
+                cy = int(h * 0.78)
+                left = cx - panel_w // 2
+                right = cx + panel_w // 2
+                bottom = cy - panel_h // 2
+                top = cy + panel_h // 2
+                arcade.draw_lrbt_rectangle_filled(left, right, bottom, top, THEME["panel_fill"])
+                try:
+                    arcade.draw_lrbt_rectangle_outline(left, right, bottom, top, THEME["panel_outline"], border_width=3)
+                except Exception:
+                    pass
+                title = self.endgame_title or "Juego finalizado"
+                reason = self.endgame_reason or ""
+                font_title = _scale_font(18, h)
+                font_reason = _scale_font(14, h)
+                arcade.draw_text(title, left + 16, top - 36, THEME["text"], font_title)
+                arcade.draw_text(reason, left + 16, top - 64, THEME["subtext"], font_reason)
+        except Exception:
+            pass
         self.manager.draw()
         
     def on_resize(self, width, height):
@@ -778,8 +804,14 @@ class RecordsView(arcade.View):
     def __init__(self):
         super().__init__()
         self.manager = arcade.gui.UIManager()
-        self.score_system = ScoreSystem(save_dir="saves")  # usa el mismo directorio por defecto
-        self.scores = self.score_system.get_high_scores(limit=10)  # lista de ScoreEntry
+        self.score_system = ScoreSystem(save_dir="saves")
+        self.scores = self.score_system.get_high_scores(limit=10)
+        try:
+            from .scoreboard import Scoreboard
+            self.sb_scores = Scoreboard().load_scores()
+        except Exception:
+            self.sb_scores = []
+        self.scroll_index = 0
 
         # UI: sólo el botón volver (abajo)
         v_box = arcade.gui.UIBoxLayout(vertical=True, space_between=10)
@@ -802,7 +834,7 @@ class RecordsView(arcade.View):
         )
 
         # si no hay scores, mostrar mensaje
-        if not self.scores:
+        if not self.scores and not self.sb_scores:
             self.empty_text = arcade.Text(
                 "No hay records aún. Disfruta de unas partidas y vuelve luego!", SCREEN_WIDTH/2, SCREEN_HEIGHT/2,
                 arcade.color.LIGHT_GRAY, font_size=18, anchor_x="center"
@@ -810,20 +842,30 @@ class RecordsView(arcade.View):
         else:
             # preparar líneas para dibujar
             self.table_lines = []
-            # encabezados de columnas
-            header_line = f"{'Rk':<3} {'Jugador':<14} {'Score':>6} {'$':>8} {'Rep':>5} {'Entregas':>9} {'A tiempo':>8} {'Fecha':>19}"
-            self.table_lines.append(header_line)
-            # cada entry
-            for idx, e in enumerate(self.scores, start=1):
-                name = getattr(e, "player_name", "Unknown")[:14]
-                score = getattr(e, "score", 0)
-                money = getattr(e, "money_earned", 0.0)
-                rep = getattr(e, "reputation", 0.0)
-                deliveries = getattr(e, "deliveries_completed", 0)
-                on_time = getattr(e, "on_time_deliveries", 0)
-                date = getattr(e, "date", "")
-                line = f"{idx:<3} {name:<14} {score:>6} {money:>8.2f} {rep:>5.0f} {deliveries:>9} {on_time:>8} {date:>19}"
-                self.table_lines.append(line)
+            if self.sb_scores:
+                header_line = f"{'Rk':<3} {'Score':>6} {'$':>8} {'Rep':>5} {'Tiempo':>9} {'Fecha':>19}"
+                self.table_lines.append(header_line)
+                for idx, e in enumerate(self.sb_scores, start=1):
+                    score = float(e.get("score", 0.0))
+                    money = float(e.get("money", 0.0))
+                    rep = float(e.get("reputation", 0.0))
+                    time_rem = float(e.get("time_remaining", 0.0))
+                    date = str(e.get("date", ""))[:19]
+                    line = f"{idx:<3} {int(score):>6} {money:>8.2f} {rep:>5.0f} {time_rem:>9.0f} {date:>19}"
+                    self.table_lines.append(line)
+            else:
+                header_line = f"{'Rk':<3} {'Jugador':<14} {'Score':>6} {'$':>8} {'Rep':>5} {'Entregas':>9} {'A tiempo':>8} {'Fecha':>19}"
+                self.table_lines.append(header_line)
+                for idx, e in enumerate(self.scores, start=1):
+                    name = getattr(e, "player_name", "Unknown")[:14]
+                    score = getattr(e, "score", 0)
+                    money = getattr(e, "money_earned", 0.0)
+                    rep = getattr(e, "reputation", 0.0)
+                    deliveries = getattr(e, "deliveries_completed", 0)
+                    on_time = getattr(e, "on_time_deliveries", 0)
+                    date = getattr(e, "date", "")
+                    line = f"{idx:<3} {name:<14} {score:>6} {money:>8.2f} {rep:>5.0f} {deliveries:>9} {on_time:>8} {date:>19}"
+                    self.table_lines.append(line)
 
     def on_show(self):
         arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
@@ -839,21 +881,63 @@ class RecordsView(arcade.View):
         w, h = self.window.width, self.window.height
         draw_vertical_gradient(w, h, THEME["bg_top"], THEME["bg_bottom"])
         draw_center_panel(w, h)
-        # dibujar encabezado
         self.header.draw()
-        # dibujar tabla o mensaje vacío sobre el panel
         if hasattr(self, "empty_text"):
             self.empty_text.draw()
         else:
-            start_y = h - 150
-            line_h = 24
-            left_margin = 60
-            arcade.draw_text(self.table_lines[0], left_margin, start_y, arcade.color.LIGHT_GRAY, _scale_font(14, h), font_name="monospace")
-            for i, line in enumerate(self.table_lines[1:], start=1):
-                y = start_y - (i * line_h)
-                arcade.draw_text(line, left_margin, y, arcade.color.WHITE, _scale_font(14, h), font_name="monospace")
+            panel_w = w * 0.78
+            panel_h = h * 0.52
+            cx = w / 2
+            cy = h / 2
+            left = int(cx - panel_w/2)
+            right = int(cx + panel_w/2)
+            bottom = int(cy - panel_h/2)
+            top = int(cy + panel_h/2)
+            font_size = _scale_font(14, h)
+            line_h = int(font_size * 1.4)
+            header_y = top - 46
+            body_top = header_y - 14
+            body_bottom = bottom + 20
+            visible_height = body_top - body_bottom
+            rows_per_page = max(1, visible_height // line_h)
+            self._rows_per_page = rows_per_page
+            total_rows = max(0, len(self.table_lines) - 1)
+            self.scroll_index = max(0, min(self.scroll_index, max(0, total_rows - rows_per_page)))
+            left_margin = left + 24
+            arcade.draw_text(self.table_lines[0], left_margin, header_y, arcade.color.LIGHT_GRAY, font_size, font_name="monospace")
+            start = self.scroll_index
+            end = min(start + rows_per_page, total_rows)
+            for i in range(start, end):
+                line = self.table_lines[1:][i]
+                y = body_top - ((i - start + 1) * line_h)
+                arcade.draw_text(line, left_margin, y, arcade.color.WHITE, font_size, font_name="monospace")
+            hint = "↑/↓ para desplazarse  •  PgUp/PgDn para paginar"
+            arcade.draw_text(hint, left_margin, body_bottom - 10, arcade.color.LIGHT_GRAY, _scale_font(12, h))
         draw_footer_help(w, h)
         self.manager.draw()
+
+    def on_key_press(self, key, modifiers):
+        if hasattr(self, "table_lines"):
+            total_rows = max(0, len(self.table_lines) - 1)
+            rows_per_page = getattr(self, "_rows_per_page", 5)
+            if key == arcade.key.DOWN:
+                self.scroll_index = min(self.scroll_index + 1, max(0, total_rows - rows_per_page))
+            elif key == arcade.key.UP:
+                self.scroll_index = max(0, self.scroll_index - 1)
+            elif key == arcade.key.PAGEUP:
+                self.scroll_index = max(0, self.scroll_index - rows_per_page)
+            elif key == arcade.key.PAGEDOWN:
+                self.scroll_index = min(self.scroll_index + rows_per_page, max(0, total_rows - rows_per_page))
+
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        if hasattr(self, "table_lines"):
+            total_rows = max(0, len(self.table_lines) - 1)
+            rows_per_page = getattr(self, "_rows_per_page", 5)
+            delta = -int(scroll_y)
+            if delta > 0:
+                self.scroll_index = min(self.scroll_index + delta, max(0, total_rows - rows_per_page))
+            elif delta < 0:
+                self.scroll_index = max(0, self.scroll_index + delta)
 
 
 # ========================
@@ -994,16 +1078,24 @@ class MapPlayerViewWithPause(MapPlayerView):
         pause_btn = arcade.gui.UIFlatButton(text="☰ Menú", width=100)
         anchor.add(child=pause_btn, anchor_x="right", anchor_y="top", align_x=-10, align_y=-10)
         @pause_btn.event("on_click")
-        def on_pause(event): self.window.show_view(PauseMenuView(self, self.state, self.slot))
+        def on_pause(event):
+            try:
+                if getattr(self, "_show_endgame_overlay", False) or getattr(self, "_show_lose_overlay", False):
+                    slide_to(self, MainMenuView(endgame_title=getattr(self, "_endgame_title", ""), endgame_reason=getattr(self, "_endgame_reason", "")))
+                else:
+                    self.window.show_view(PauseMenuView(self, self.state, self.slot))
+            except Exception:
+                pass
         undo_btn = arcade.gui.UIFlatButton(text="↺ Deshacer", width=100)
         anchor.add(child=undo_btn, anchor_x="right", anchor_y="top", align_x=-10, align_y=-55)
         @undo_btn.event("on_click")
         def on_undo(event):
+            if getattr(self, "_show_endgame_overlay", False) or getattr(self, "_show_lose_overlay", False):
+                return
             try:
                 if hasattr(self, "_undo_one_step"):
                     self._undo_one_step()
                 else:
-                    # fallback: una acción de deshacer
                     undone = False
                     if self.game_manager and hasattr(self.game_manager, 'undo_last_action'):
                         try:
@@ -1023,8 +1115,12 @@ class MapPlayerViewWithPause(MapPlayerView):
 
     def on_draw(self): super().on_draw(); self.manager.draw()
     def on_key_press(self, key, modifiers):
-        if key == arcade.key.ESCAPE: self.window.show_view(PauseMenuView(self, self.state, self.slot))
-        else: super().on_key_press(key, modifiers)
+        if getattr(self, "_show_endgame_overlay", False) or getattr(self, "_show_lose_overlay", False):
+            return
+        if key == arcade.key.ESCAPE:
+            self.window.show_view(PauseMenuView(self, self.state, self.slot))
+        else:
+            super().on_key_press(key, modifiers)
     def on_mouse_press(self,x,y,b,m): self.manager.on_mouse_press(x,y,b,m)
     def on_mouse_release(self,x,y,b,m): self.manager.on_mouse_release(x,y,b,m)
     def on_mouse_motion(self,x,y,dx,dy): self.manager.on_mouse_motion(x,y,dx,dy)

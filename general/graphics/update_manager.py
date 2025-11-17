@@ -121,16 +121,30 @@ class UpdateManager:
 
         # 3) verificar condiciones de fin de partida y registrar puntaje
         try:
-            prev_game_over = getattr(self, "_game_over", False)
+            prev_game_over = getattr(self.parent, "_game_over", False)
             self.parent.endgame.check_and_maybe_end()
-            if getattr(self, "_game_over", False) and not prev_game_over:
-                # activar overlay de derrota si aplica
+            if getattr(self.parent, "_game_over", False) and not prev_game_over:
                 money = self.parent._get_state_money()
                 goal = self.parent.endgame._compute_goal()
                 rep = getattr(self.parent.player_stats, "reputation", 70)
-                if rep < 20 or money < goal:
+                try:
+                    time_remaining = float(self.parent.game_manager.get_time_remaining()) if self.parent.game_manager else 0.0
+                except Exception:
+                    time_remaining = 0.0
+                self.parent._show_endgame_overlay = True
+                if money >= goal:
+                    self.parent._endgame_title = "🏆 ¡Victoria!"
+                    self.parent._endgame_reason = "Has alcanzado la meta de ingresos. ¡Felicitaciones!"
+                elif rep <= 20:
+                    self.parent._endgame_title = "❌ Juego Finalizado"
+                    self.parent._endgame_reason = "Has alcanzado el mínimo de reputación. Inténtalo nuevamente."
                     self.parent._show_lose_overlay = True
-                    self.parent._lose_reason = "Reputación baja" if rep < 20 else "Meta no alcanzada"
+                    self.parent._lose_reason = "Reputación baja"
+                else:
+                    self.parent._endgame_title = "⏰ Tiempo agotado"
+                    self.parent._endgame_reason = "El tiempo se terminó. Inténtalo nuevamente."
+                    self.parent._show_lose_overlay = True
+                    self.parent._lose_reason = "Tiempo agotado"
         except Exception as e:
             print(f"[ENDGAME] Error: {e}")
 

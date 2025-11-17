@@ -92,9 +92,9 @@ class EndgameManager:
         rep = getattr(v.player_stats, "reputation", 70)
 
         finished: Optional[str] = None
-        if money >= goal and time_remaining > 0:
+        if money >= goal:
             finished = "win"
-        elif rep < 20:
+        elif rep <= 20:
             finished = "lose"
         elif time_remaining <= 0 and money < goal:
             finished = "lose"

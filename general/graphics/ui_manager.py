@@ -40,8 +40,8 @@ class UIManager:
             self.parent.notification_text.y = 200
             self.parent.notification_text.draw()
 
-        if self.parent._show_lose_overlay:
-            self._draw_lose_overlay()
+        if getattr(self.parent, "_show_endgame_overlay", False) or getattr(self.parent, "_show_lose_overlay", False):
+            self._draw_endgame_overlay()
 
     def _draw_panel(self):
         """Draw the main side panel."""
@@ -295,7 +295,7 @@ class UIManager:
         Text("Deshacer", btn_left + 25, btn_bottom + btn_h // 2, (0, 0, 0), 10, bold=True,
              anchor_x="left", anchor_y="center").draw()
 
-    def _draw_lose_overlay(self):
+    def _draw_endgame_overlay(self):
         """Draw the lose overlay."""
         w = getattr(self.parent, 'SCREEN_WIDTH', self.parent.width)
         h = getattr(self.parent, 'SCREEN_HEIGHT', self.parent.height)
@@ -312,6 +312,9 @@ class UIManager:
         bottom = cy - card_h//2; top = cy + card_h//2
         _draw_rect_lrbt_filled(left, right, bottom, top, (25, 28, 45))
         _draw_rect_lrbt_outline(left, right, bottom, top, (120, 100, 220), 3)
-        Text("❌ Derrota", left + 24, top - 40, (255, 120, 120), 24, bold=True).draw()
-        Text(self.parent._lose_reason or "", left + 24, top - 70, (230, 236, 245), 14).draw()
-        Text("Presiona cualquier tecla para volver al menú", left + 24, bottom + 28, (200, 210, 220), 12).draw()
+        title = getattr(self.parent, "_endgame_title", "") or ("❌ Derrota" if getattr(self.parent, "_show_lose_overlay", False) else "Fin del juego")
+        title_color = (120, 220, 160) if ("Victoria" in title or "🏆" in title) else (255, 120, 120)
+        Text(title, left + 24, top - 40, title_color, 24, bold=True).draw()
+        reason = getattr(self.parent, "_endgame_reason", "") or getattr(self.parent, "_lose_reason", "")
+        Text(reason, left + 24, top - 70, (230, 236, 245), 14).draw()
+        Text("Presiona cualquier tecla para volver al menú principal", left + 24, bottom + 28, (200, 210, 220), 12).draw()

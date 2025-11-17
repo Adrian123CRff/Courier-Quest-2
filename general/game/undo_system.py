@@ -1,7 +1,7 @@
 # undo_system.py
 import copy
 from typing import Dict, Any, List
-from game.adts import Stack
+from .adts import Stack, Deque
 
 
 class UndoSystem:
@@ -112,7 +112,7 @@ class UndoSystem:
         # Restaurar inventario
         # Necesitamos reconstruir el inventario usando los métodos existentes
         inventory_items = state['inventory']
-        inventory.deque = Stack()  # Reiniciar inventario
+        inventory.deque = Deque()  # Reiniciar inventario
         inventory.current_weight = 0.0
 
         for job in inventory_items:

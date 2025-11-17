@@ -18,13 +18,16 @@ class InputHandler:
         """Handle key press events."""
         self.parent._last_input_time = self.parent.time.time()
 
-        if self.parent._show_lose_overlay:
-            # cualquier tecla: volver al menú
+        if getattr(self.parent, "_show_endgame_overlay", False) or getattr(self.parent, "_show_lose_overlay", False):
             try:
-                from .ui_view_gui import GameMenuView
-                self.parent.window.show_view(GameMenuView())
+                from .ui_view_gui import MainMenuView, slide_to
+                slide_to(self.parent, MainMenuView(endgame_title=getattr(self.parent, "_endgame_title", ""), endgame_reason=getattr(self.parent, "_endgame_reason", "")))
             except Exception:
-                pass
+                try:
+                    from .ui_view_gui import MainMenuView
+                    self.parent.window.show_view(MainMenuView(endgame_title=getattr(self.parent, "_endgame_title", ""), endgame_reason=getattr(self.parent, "_endgame_reason", "")))
+                except Exception:
+                    pass
             return
 
         # snapshot for undo on any significant key
@@ -288,6 +291,8 @@ class InputHandler:
 
     def on_mouse_press(self, x: float, y: float, button: int, modifiers: int):
         """Handle mouse press events."""
+        if getattr(self.parent, "_show_endgame_overlay", False) or getattr(self.parent, "_show_lose_overlay", False):
+            return
         if button == arcade.MOUSE_BUTTON_LEFT:
             # Botón de deshacer
             if self.parent.undo_button_rect:
