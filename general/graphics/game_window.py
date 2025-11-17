@@ -164,6 +164,9 @@ class MapPlayerView(View):
         self.TILE_SIZE = TILE_SIZE
         self.SCREEN_WIDTH = SCREEN_WIDTH
 
+        self._mouse_x = None
+        self._mouse_y = None
+
         # helper modules
         self.inventory_ui = InventoryUI(self)
         self.notifications = NotificationManager(self)
@@ -215,6 +218,7 @@ class MapPlayerView(View):
         self._get_job_payout = self.payouts.get_job_payout
 
         self.cpu_agent = None
+        self.cpu_difficulty = "easy"
 
     # ---------- Inventario para partidas nuevas y cargadas ----------
     def _ensure_inventory(self):
@@ -386,6 +390,13 @@ class MapPlayerView(View):
             self.set_game_systems(self.game_manager, self.job_manager)
             print("🎮 SISTEMAS DE JUEGO INICIALIZADOS")
             try:
+                try:
+                    if isinstance(self.state, dict):
+                        self.cpu_difficulty = str(self.state.get("cpu_difficulty", self.cpu_difficulty))
+                    else:
+                        self.cpu_difficulty = str(getattr(self.state, "cpu_difficulty", self.cpu_difficulty))
+                except Exception:
+                    pass
                 class _CpuJobsAdapter(JobsAPI):
                     def __init__(self, view):
                         self.view = view
@@ -477,7 +488,14 @@ class MapPlayerView(View):
                                 break
                 except Exception:
                     pass
-                self.cpu_agent = EasyCPUCourier(self.game_map.is_walkable, _CpuJobsAdapter(self), _CpuWorldAdapter(), initial_grid_pos=(sx, sy))
+                diff = (self.cpu_difficulty or "easy").lower()
+                # fábrica simple: por ahora todas mapean a Easy; luego reemplazamos con Medium/Hard
+                self.cpu_agent = EasyCPUCourier(
+                    self.game_map.is_walkable,
+                    _CpuJobsAdapter(self),
+                    _CpuWorldAdapter(),
+                    initial_grid_pos=(sx, sy)
+                )
             except Exception as e:
                 print(f"[CPU] Error inicializando CPU: {e}")
         except Exception as e:
@@ -839,6 +857,10 @@ class MapPlayerView(View):
 
     def on_show(self) -> None:
         arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
 
     def _compute_fallback_stats(self):
         deliveries = 0
@@ -1524,6 +1546,10 @@ class MapPlayerView(View):
                 if btn_left <= x <= btn_right and btn_bottom <= y <= btn_top:
                     self._navigate_inventory_right()
                     return
+
+    def on_mouse_motion(self, x: float, y: float, dx: float, dy: float):
+        self._mouse_x = x
+        self._mouse_y = y
 
     def on_key_release(self, key: int, modifiers: int):
         if not self._pending_offer:

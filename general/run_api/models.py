@@ -10,6 +10,7 @@ class GameState:
     orders: List[Dict[str, Any]] = field(default_factory=list)
     weather_state: Dict[str, Any] = field(default_factory=dict)
     reputation: int = 70
+    cpu_difficulty: str = "easy"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -18,6 +19,7 @@ class GameState:
             "orders": self.orders,
             "weather_state": self.weather_state,
             "reputation": self.reputation,
+            "cpu_difficulty": self.cpu_difficulty,
         }
 
     @classmethod
@@ -27,5 +29,6 @@ class GameState:
             city_map=d.get("city_map", {}),
             orders=d.get("orders", []),
             weather_state=d.get("weather_state", {}),
-            reputation=d.get("reputation", 70)
+            reputation=d.get("reputation", 70),
+            cpu_difficulty=d.get("cpu_difficulty", "easy")
         )

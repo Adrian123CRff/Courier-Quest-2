@@ -446,6 +446,14 @@ class MainMenuView(arcade.View):
 
     def on_show(self):
         arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_show_view(self): self.manager.enable()
     def on_hide_view(self): self.manager.disable()
     def on_draw(self):
@@ -537,7 +545,12 @@ class GameMenuView(arcade.View):
 
     def on_show_view(self): self.manager.enable()
     def on_hide_view(self): self.manager.disable()
-    def on_show(self): arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+    def on_show(self):
+        arcade.set_background_color(arcade.color.DARK_SLATE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_draw(self):
         self.clear()
         w, h = self.window.width, self.window.height
@@ -589,6 +602,10 @@ class InstructionsView(arcade.View):
 
     def on_show(self):
         arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
 
     def on_show_view(self):
         self.manager.enable()
@@ -645,6 +662,23 @@ class NewGameMenuView(arcade.View):
         super().__init__()
         self.manager = arcade.gui.UIManager()
         v_box = arcade.gui.UIBoxLayout(vertical=True, space_between=15)
+        self.cpu_difficulty = "easy"
+
+        diff_box = arcade.gui.UIBoxLayout(vertical=False, space_between=10)
+        easy_btn = arcade.gui.UIFlatButton(text="IA: Fácil", width=120)
+        med_btn = arcade.gui.UIFlatButton(text="IA: Media", width=120)
+        hard_btn = arcade.gui.UIFlatButton(text="IA: Difícil", width=120)
+        diff_box.add(easy_btn); diff_box.add(med_btn); diff_box.add(hard_btn)
+        v_box.add(diff_box)
+        @easy_btn.event("on_click")
+        def _on_easy(event):
+            _play_click(); self.cpu_difficulty = "easy"
+        @med_btn.event("on_click")
+        def _on_med(event):
+            _play_click(); self.cpu_difficulty = "medium"
+        @hard_btn.event("on_click")
+        def _on_hard(event):
+            _play_click(); self.cpu_difficulty = "hard"
 
         self.saves = list_saves()
         for i in range(1, 4):
@@ -714,6 +748,14 @@ class NewGameMenuView(arcade.View):
         try:
             api = ApiClient()
             state = init_game_state(api)
+            try:
+                # soportar dataclass GameState y dict
+                if hasattr(state, "cpu_difficulty"):
+                    state.cpu_difficulty = self.cpu_difficulty
+                elif isinstance(state, dict):
+                    state["cpu_difficulty"] = self.cpu_difficulty
+            except Exception:
+                pass
             save_game(state, slot)
             print(f"[INFO] Nueva partida creada en {slot}")
             self.window.show_view(MapPlayerViewWithPause(state, slot))
@@ -722,7 +764,12 @@ class NewGameMenuView(arcade.View):
 
     def on_show_view(self): self.manager.enable()
     def on_hide_view(self): self.manager.disable()
-    def on_show(self): arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+    def on_show(self):
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_draw(self):
         self.clear()
         w, h = self.window.width, self.window.height
@@ -810,7 +857,12 @@ class LoadMenuView(arcade.View):
 
     def on_show_view(self): self.manager.enable()
     def on_hide_view(self): self.manager.disable()
-    def on_show(self): arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+    def on_show(self):
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_draw(self):
         self.clear()
         w, h = self.window.width, self.window.height
@@ -1034,7 +1086,13 @@ class SettingsView(arcade.View):
         anchor.add(child=v_box, anchor_x="center_x", anchor_y="center_y")
         self.manager.add(anchor)
 
-    def on_show(self): arcade.set_background_color(arcade.color.DARK_BLUE_GRAY); self.manager.enable()
+    def on_show(self):
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        self.manager.enable()
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_hide_view(self): self.manager.disable()
     def on_draw(self):
         self.clear()
@@ -1081,7 +1139,13 @@ class PauseMenuView(arcade.View):
         anchor = arcade.gui.UIAnchorLayout()
         anchor.add(child=v_box, anchor_x="center_x", anchor_y="center_y"); self.manager.add(anchor)
 
-    def on_show(self): arcade.set_background_color(arcade.color.DARK_BLUE_GRAY); self.manager.enable()
+    def on_show(self):
+        arcade.set_background_color(arcade.color.DARK_BLUE_GRAY)
+        self.manager.enable()
+        try:
+            self.window.set_mouse_visible(True)
+        except Exception:
+            pass
     def on_hide_view(self): self.manager.disable()
     def on_draw(self): self.clear(); self.manager.draw()
     def on_mouse_press(self,x,y,b,m): self.manager.on_mouse_press(x,y,b,m)
@@ -1161,7 +1225,7 @@ class MapPlayerViewWithPause(MapPlayerView):
             super().on_key_press(key, modifiers)
     def on_mouse_press(self,x,y,b,m): self.manager.on_mouse_press(x,y,b,m)
     def on_mouse_release(self,x,y,b,m): self.manager.on_mouse_release(x,y,b,m)
-    def on_mouse_motion(self,x,y,dx,dy): self.manager.on_mouse_motion(x,y,dx,dy)
+    def on_mouse_motion(self,x,y,dx,dy): self._mouse_x = x; self._mouse_y = y; self.manager.on_mouse_motion(x,y,dx,dy)
 
 
 def main():
