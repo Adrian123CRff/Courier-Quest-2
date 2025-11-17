@@ -46,6 +46,8 @@ class JobsLogic:
         try:
             for job in v.job_manager.all_jobs():
                 if getattr(job, "completed", False):
+                    if getattr(job, "cpu_completed", False) or getattr(job, "completed_by", "") == "cpu":
+                        continue
                     jid = getattr(job, "id", None)
                     if jid and jid not in v._counted_deliveries:
                         payout = v._get_job_payout(job)
@@ -63,6 +65,8 @@ class JobsLogic:
             computed = 0.0
             for job in v.job_manager.all_jobs():
                 if getattr(job, "completed", False):
+                    if getattr(job, "cpu_completed", False) or getattr(job, "completed_by", "") == "cpu":
+                        continue
                     computed += v._get_job_payout(job)
             current = v._get_state_money()
             if computed > current:

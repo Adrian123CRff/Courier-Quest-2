@@ -664,22 +664,6 @@ class NewGameMenuView(arcade.View):
         v_box = arcade.gui.UIBoxLayout(vertical=True, space_between=15)
         self.cpu_difficulty = "easy"
 
-        diff_box = arcade.gui.UIBoxLayout(vertical=False, space_between=10)
-        easy_btn = arcade.gui.UIFlatButton(text="IA: Fácil", width=120)
-        med_btn = arcade.gui.UIFlatButton(text="IA: Media", width=120)
-        hard_btn = arcade.gui.UIFlatButton(text="IA: Difícil", width=120)
-        diff_box.add(easy_btn); diff_box.add(med_btn); diff_box.add(hard_btn)
-        v_box.add(diff_box)
-        @easy_btn.event("on_click")
-        def _on_easy(event):
-            _play_click(); self.cpu_difficulty = "easy"
-        @med_btn.event("on_click")
-        def _on_med(event):
-            _play_click(); self.cpu_difficulty = "medium"
-        @hard_btn.event("on_click")
-        def _on_hard(event):
-            _play_click(); self.cpu_difficulty = "hard"
-
         self.saves = list_saves()
         for i in range(1, 4):
             slot = f"slot{i}.sav"
@@ -692,7 +676,7 @@ class NewGameMenuView(arcade.View):
                 if s in self.saves:
                     self.confirm_overwrite(s)
                 else:
-                    self.create_game(s)
+                    self.choose_difficulty(s)
 
         new_slot_btn = arcade.gui.UIFlatButton(text="Crear Nuevo Slot", width=380)
         v_box.add(new_slot_btn)
@@ -705,7 +689,7 @@ class NewGameMenuView(arcade.View):
             except Exception:
                 new_index = len(self.saves) + 1
             new_slot = f"slot{new_index}.sav"
-            self.create_game(new_slot)
+            self.choose_difficulty(new_slot)
 
         back_btn = arcade.gui.UIFlatButton(text="Volver", width=260)
         v_box.add(back_btn)
@@ -733,7 +717,7 @@ class NewGameMenuView(arcade.View):
         @yes_btn.event("on_click")
         def on_yes(event):
             _play_click()
-            self.create_game(slot)
+            self.choose_difficulty(slot)
         @no_btn.event("on_click")
         def on_no(event):
             _play_click()
@@ -743,6 +727,43 @@ class NewGameMenuView(arcade.View):
         anchor.add(child=confirm_box, anchor_x="center_x", anchor_y="center_y")
         self.manager.add(anchor)
         self.confirm_text = confirm_text
+
+    def choose_difficulty(self, slot):
+        self.manager.clear()
+        try:
+            del self.confirm_text
+        except Exception:
+            pass
+        box = arcade.gui.UIBoxLayout(vertical=True, space_between=15)
+        self.select_text = arcade.Text("Selecciona dificultad de IA", 0, 0, arcade.color.WHITE, font_size=24, anchor_x="center")
+        easy_btn = arcade.gui.UIFlatButton(text="IA: Fácil", width=200)
+        med_btn = arcade.gui.UIFlatButton(text="IA: Media", width=200)
+        hard_btn = arcade.gui.UIFlatButton(text="IA: Difícil", width=200)
+        box.add(easy_btn); box.add(med_btn); box.add(hard_btn)
+        @easy_btn.event("on_click")
+        def on_easy(event):
+            _play_click()
+            self.cpu_difficulty = "easy"
+            self.create_game(slot)
+        @med_btn.event("on_click")
+        def on_med(event):
+            _play_click()
+            self.cpu_difficulty = "medium"
+            self.create_game(slot)
+        @hard_btn.event("on_click")
+        def on_hard(event):
+            _play_click()
+            self.cpu_difficulty = "hard"
+            self.create_game(slot)
+        cancel_btn = arcade.gui.UIFlatButton(text="Cancelar", width=200)
+        box.add(cancel_btn)
+        @cancel_btn.event("on_click")
+        def on_cancel(event):
+            _play_click()
+            slide_to(self, NewGameMenuView())
+        anchor = arcade.gui.UIAnchorLayout()
+        anchor.add(child=box, anchor_x="center_x", anchor_y="center_y")
+        self.manager.add(anchor)
 
     def create_game(self, slot):
         try:
@@ -776,7 +797,20 @@ class NewGameMenuView(arcade.View):
         draw_vertical_gradient(w, h, THEME["bg_top"], THEME["bg_bottom"])
         draw_header_and_subtitle(w, h)
         draw_center_panel(w, h)
-        if hasattr(self, "confirm_text"):
+        if hasattr(self, "select_text"):
+            try:
+                panel_w = w * 0.78
+                panel_h = h * 0.52
+                cx = w / 2
+                cy = h / 2
+                top = cy + panel_h/2
+                self.select_text.x = w / 2
+                self.select_text.y = top - 50
+                self.select_text.font_size = _scale_font(24, h)
+            except Exception:
+                pass
+            self.select_text.draw()
+        elif hasattr(self, "confirm_text"):
             try:
                 self.confirm_text.x = w / 2
                 self.confirm_text.y = h / 2 + 60

@@ -30,6 +30,20 @@ class UIManager:
             self.parent.weather_renderer.draw()
         except Exception:
             pass
+        try:
+            if hasattr(self.parent, "cpu_agent") and self.parent.cpu_agent:
+                cx, cy = self.parent.cpu_agent.grid_pos
+                px, py = self.parent._cell_to_pixel(int(cx), int(cy))
+                r = int(self.parent.TILE_SIZE * 0.48)
+                arcade.draw_circle_filled(px, py, r, (255, 64, 160))
+                arcade.draw_circle_outline(px, py, r, (255, 255, 255), 3)
+            else:
+                px, py = self.parent._cell_to_pixel(int(self.parent.player.cell_x), int(self.parent.player.cell_y))
+                r = int(self.parent.TILE_SIZE * 0.40)
+                arcade.draw_circle_filled(px, py, r, (255, 220, 40))
+                arcade.draw_circle_outline(px, py, r, (255, 255, 255), 2)
+        except Exception:
+            pass
         self.parent.notifications.draw()
 
         if self.parent.active_notification and self.parent.notification_timer > 0:
@@ -106,7 +120,7 @@ class UIManager:
                 pass
             money = self.parent._get_state_money()
             Text("$ Ingresos / Meta", left + 12, top - 50, (120, 220, 160), 10).draw()
-            Text(f"${int(money)} / ${goal}", left + 12, top - 62, (240, 246, 255), 12, bold=True).draw()
+            Text("$" + str(int(money)) + " / $" + str(goal), left + 12, top - 62, (240, 246, 255), 12, bold=True).draw()
         except Exception:
             pass
 
@@ -140,23 +154,83 @@ class UIManager:
         # Clima - integrado en la misma ventana, más compacto
         try:
             cond = self.parent.weather.get_current_condition_name()
-            # Mapear nombres de clima a español
-            clima_map = {
-                "clear": "Despejado",
-                "clouds": "Nublado",
-                "rain": "Lluvia",
-                "storm": "Tormenta",
-                "fog": "Niebla",
-                "wind": "Viento",
-                "heat": "Calor",
-                "cold": "Frío"
-            }
-            clima_text = clima_map.get(cond, cond)
+            clima_text = str(cond)
             Text("☁ Clima", left + 12, top - 165, (200, 210, 220), 10).draw()
             Text(clima_text, left + 12, top - 177, (230, 236, 245), 10).draw()
         except Exception:
             Text("☁ Clima", left + 12, top - 165, (200, 210, 220), 10).draw()
             Text("Despejado", left + 12, top - 177, (230, 236, 245), 10).draw()
+
+        # Indicador de dificultad del CPU y barras propias
+        try:
+            diff = str(getattr(self.parent, 'cpu_difficulty', 'easy') or 'easy').capitalize()
+            Text(f"🤖 CPU: {diff}", left + 12, top - 192, (160, 200, 255), 10).draw()
+            # Barras CPU (resistencia / reputación / carga)
+            ca = getattr(self.parent, 'cpu_agent', None)
+            if ca:
+                st = float(getattr(ca, 'stamina', 0.0) or 0.0)
+                rp = float(getattr(ca, 'reputation', 0.0) or 0.0)
+                try:
+                    carry = len(getattr(getattr(ca, 's', None), 'carrying', []) or [])
+                    max_c = int(getattr(getattr(ca, 'cfg', None), 'max_carry', 1) or 1)
+                except Exception:
+                    carry, max_c = 0, 1
+                # posiciones bajo clima
+                y0 = top - 330
+                Text("CPU Resistencia", left + 12, y0, (200, 210, 220), 10).draw()
+                draw_progress_bar(left + 12, y0 - 8, card_w - 24, 8, max(0.0, min(1.0, st / 100.0)), (255, 120, 180))
+                y1 = y0 - 27
+                Text("CPU Reputación", left + 12, y1, (200, 210, 220), 10).draw()
+                draw_progress_bar(left + 12, y1 - 8, card_w - 24, 8, max(0.0, min(1.0, rp / 100.0)), (255, 200, 120))
+                y2 = y1 - 27
+                Text("CPU Carga", left + 12, y2, (200, 210, 220), 10).draw()
+                w = 0.0; cap = 10.0
+                try:
+                    inv = getattr(getattr(ca, 's', None), 'inventory', None)
+                    w = float(getattr(inv, 'weight', 0.0) or 0.0)
+                    cap = float(getattr(inv, 'capacity_kg', getattr(getattr(ca, 'cfg', None), 'capacity_kg', 10.0)))
+                except Exception:
+                    pass
+                val = 0.0
+                try:
+                    val = w / float(max(0.01, cap))
+                except Exception:
+                    val = 0.0
+                draw_progress_bar(left + 12, y2 - 8, card_w - 24, 8, max(0.0, min(1.0, val)), (120, 200, 255))
+                Text(f"{w:.1f} / {cap:.1f} kg", left + 12, y2 - 22, (230, 236, 245), 10).draw()
+                # Lista de inventario del CPU
+                y3 = y2 - 48
+                Text("CPU Inventario", left + 12, y3, (255, 200, 120), 10).draw()
+                # Ingresos / Meta del CPU
+                try:
+                    cpu_money = float(getattr(getattr(ca, 's', None), 'money', 0.0) or 0.0)
+                except Exception:
+                    cpu_money = 0.0
+                goal = 1500.0
+                try:
+                    if hasattr(self.parent, 'endgame') and hasattr(self.parent.endgame, '_compute_goal'):
+                        goal = float(self.parent.endgame._compute_goal())
+                except Exception:
+                    pass
+                Text(f"$ CPU Ingresos / Meta  ${cpu_money:.0f} / ${goal:.0f}", left + 12, y3 - 12, (160, 255, 180), 10).draw()
+                # Lista de inventario con pesos
+                items = []
+                try:
+                    items = list(getattr(inv, 'items', []))
+                except Exception:
+                    items = []
+                if items:
+                    for i, jid in enumerate(items[:4]):
+                        wt = 0.0
+                        try:
+                            wt = float(getattr(ca.jobs, 'weight_of')(jid) or 0.0) if hasattr(ca, 'jobs') else 0.0
+                        except Exception:
+                            wt = 0.0
+                        Text(f"- {jid} ({wt:.1f}kg)", left + 12, y3 - 26 - i * 12, (230, 236, 245), 10).draw()
+                else:
+                    Text("Inventario vacío", left + 12, y3 - 26, (200, 210, 220), 10).draw()
+        except Exception:
+            pass
 
     def _draw_inventory_panel(self):
         """Draw the inventory panel with navigation."""

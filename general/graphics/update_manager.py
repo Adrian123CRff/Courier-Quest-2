@@ -41,8 +41,129 @@ class UpdateManager:
             except Exception:
                 pass
 
+        # ensure CPU agent exists even if initialization failed earlier
+        if not getattr(self.parent, 'cpu_agent', None):
+            try:
+                from ..ia.cpu_easy import EasyCPUCourier, CpuConfig
+                try:
+                    from ..ia.easy_adapters import EasyJobsAdapter, EasyWorldAdapter
+                except Exception:
+                    class EasyJobsAdapter:
+                        def __init__(self, view): self.view = view
+                        def pick_random_available(self, rng):
+                            jm = getattr(self.view, 'job_manager', None); gm = getattr(self.view, 'game_manager', None)
+                            if not jm: return None
+                            try: now = gm.get_game_time() if gm and hasattr(gm, 'get_game_time') else 0.0
+                            except Exception: now = 0.0
+                            av = jm.get_available_jobs(now); av = [j for j in av if not getattr(j, 'rejected', False) and not getattr(j, 'completed', False)]
+                            if not av: return None
+                            j = rng.choice(av); return getattr(j, 'id', None)
+                        def get_pickups_at(self, cell):
+                            jm = getattr(self.view, 'job_manager', None)
+                            if not jm: return []
+                            x, y = int(cell[0]), int(cell[1]); out = []
+                            class _Wrap:
+                                def __init__(self, jid): self.id = jid
+                            for j in jm.all_jobs():
+                                if getattr(j, 'completed', False) or getattr(j, 'rejected', False): continue
+                                try: px, py = j.pickup
+                                except Exception: px, py = None, None
+                                if px == x and py == y:
+                                    jid = getattr(j, 'id', None)
+                                    if jid: out.append(_Wrap(jid))
+                            return out
+                        def is_dropoff_here(self, job_id, cell):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return False
+                            try: dx, dy = j.dropoff
+                            except Exception: dx, dy = None, None
+                            return dx == int(cell[0]) and dy == int(cell[1])
+                        def pickup(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return False
+                            try:
+                                if not getattr(j, 'accepted', False): jm.accept_job(job_id)
+                                j.picked_up = True; j.dropoff_visible = True; return True
+                            except Exception: return False
+                        def dropoff(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return None
+                            try:
+                                if not getattr(j, 'picked_up', False): return None
+                                try: base = float(getattr(j, 'raw', {}).get('payout', getattr(j, 'payout', 0.0) or 0.0))
+                                except Exception: base = 0.0
+                                j.completed = True
+                                try:
+                                    setattr(j, 'cpu_completed', True)
+                                    setattr(j, 'completed_by', 'cpu')
+                                except Exception:
+                                    pass
+                                return base
+                            except Exception: return None
+                        def weight_of(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return 0.0
+                            try:
+                                raw = getattr(j, 'raw', {}) or {}
+                                w = raw.get('weight', None)
+                                if w is None:
+                                    w = getattr(j, 'weight', 0.0)
+                                return float(w or 0.0)
+                            except Exception: return 0.0
+                        def pickup_coords(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return None
+                            try: return getattr(j, 'pickup', None)
+                            except Exception: return None
+                        def dropoff_coords(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return None
+                            try: return getattr(j, 'dropoff', None)
+                            except Exception: return None
+                        def is_picked_up(self, job_id):
+                            jm = getattr(self.view, 'job_manager', None); j = jm.get_job(job_id) if jm else None
+                            if not j: return False
+                            try: return bool(getattr(j, 'picked_up', False))
+                            except Exception: return False
+                    class EasyWorldAdapter:
+                        def __init__(self, view=None): self.view = view
+                        def base_move_cost(self): return 1.0
+                        def reputation_gain_on_delivery(self): return 1.0
+                        def current_weather(self):
+                            try:
+                                if self.view and hasattr(self.view, 'weather'):
+                                    return str(self.view.weather.get_current_condition_name())
+                            except Exception:
+                                pass
+                            return 'clear'
+                        def get_weather_state(self):
+                            try:
+                                if self.view and hasattr(self.view, 'weather') and hasattr(self.view.weather, 'get_state'):
+                                    return dict(self.view.weather.get_state())
+                            except Exception:
+                                pass
+                            return {'condition': self.current_weather(), 'intensity': 1.0}
+                sx, sy = int(self.parent.player.cell_x), int(self.parent.player.cell_y)
+                diff = str(getattr(self.parent, 'cpu_difficulty', 'easy') or 'easy').lower()
+                if diff == 'medium':
+                    cfg = CpuConfig(step_period_sec=0.20, retarget_timeout_sec=6.0, random_repick_prob=0.15, max_carry=1)
+                elif diff == 'hard':
+                    cfg = CpuConfig(step_period_sec=0.14, retarget_timeout_sec=5.0, random_repick_prob=0.20, max_carry=2)
+                else:
+                    cfg = CpuConfig(step_period_sec=0.30, retarget_timeout_sec=8.0, random_repick_prob=0.10, max_carry=1)
+                self.parent.cpu_agent = EasyCPUCourier(
+                    self.parent.game_map.is_walkable,
+                    EasyJobsAdapter(self.parent),
+                    EasyWorldAdapter(self.parent),
+                    initial_grid_pos=(sx, sy),
+                    initial_reputation=int(getattr(self.parent.player_stats, 'reputation', 70)),
+                    config=cfg
+                )
+            except Exception:
+                pass
+
         try:
-            if hasattr(self.parent, 'cpu_agent') and self.parent.cpu_agent:
+            if getattr(self.parent, 'cpu_agent', None):
                 self.parent.cpu_agent.update(dt)
         except Exception:
             pass
