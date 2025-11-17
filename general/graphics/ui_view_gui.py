@@ -62,6 +62,15 @@ def _get_ui_sprite_list():
         except Exception:
             _ui_sprite_list = None
     return _ui_sprite_list
+_click_sound = None
+def _play_click():
+    global _click_sound
+    try:
+        if _click_sound is None:
+            _click_sound = arcade.load_sound(":resources:sounds/coin1.wav")
+        arcade.play_sound(_click_sound)
+    except Exception:
+        pass
 
 
 def _scale_font(base_size, height):
@@ -419,12 +428,14 @@ class MainMenuView(arcade.View):
         v_box.add(start_btn)
         @start_btn.event("on_click")
         def on_click_start(event):
+            _play_click()
             slide_to(self, GameMenuView())
 
         quit_btn = arcade.gui.UIFlatButton(text="Salir", width=260)
         v_box.add(quit_btn)
         @quit_btn.event("on_click")
         def on_click_quit(event):
+            _play_click()
             arcade.close_window()
 
         anchor = arcade.gui.UIAnchorLayout()
@@ -487,24 +498,31 @@ class GameMenuView(arcade.View):
         new_btn = arcade.gui.UIFlatButton(text="Nueva Partida", width=380)
         v_box.add(new_btn)
         @new_btn.event("on_click")
-        def on_new(event): slide_to(self, NewGameMenuView())
+        def on_new(event):
+            _play_click()
+            slide_to(self, NewGameMenuView())
 
         load_btn = arcade.gui.UIFlatButton(text="Cargar Partida", width=380)
         v_box.add(load_btn)
         @load_btn.event("on_click")
-        def on_load(event): slide_to(self, LoadMenuView())
+        def on_load(event):
+            _play_click()
+            slide_to(self, LoadMenuView())
 
         # --- Nuevo botón: Tabla de records ---
         records_btn = arcade.gui.UIFlatButton(text="Tabla de records", width=380)
         v_box.add(records_btn)
         @records_btn.event("on_click")
         def on_records(event):
+            _play_click()
             slide_to(self, RecordsView())
 
         instr_btn = arcade.gui.UIFlatButton(text="Instrucciones", width=380)
         v_box.add(instr_btn)
         @instr_btn.event("on_click")
-        def on_instr(event): slide_to(self, InstructionsView())
+        def on_instr(event):
+            _play_click()
+            slide_to(self, InstructionsView())
 
         back_btn = arcade.gui.UIFlatButton(text="Retroceder", width=260)
         v_box.add(back_btn)
@@ -633,13 +651,16 @@ class NewGameMenuView(arcade.View):
             slot = f"slot{i}.sav"
             txt = f"Slot {i}: {'Ocupado' if slot in self.saves else 'Vacío'}"
             btn = arcade.gui.UIFlatButton(text=txt, width=380); v_box.add(btn)
-            @btn.event("on_click")
-            def on_click(event, slot=slot): self.confirm_overwrite(slot)
+        @btn.event("on_click")
+        def on_click(event, slot=slot):
+            _play_click()
+            self.confirm_overwrite(slot)
 
         new_slot_btn = arcade.gui.UIFlatButton(text="Crear Nuevo Slot", width=380)
         v_box.add(new_slot_btn)
         @new_slot_btn.event("on_click")
         def on_new_slot(event):
+            _play_click()
             new_index = len(self.saves) + 1
             new_slot = f"slot{new_index}.sav"
             self.create_game(new_slot)
@@ -647,7 +668,9 @@ class NewGameMenuView(arcade.View):
         back_btn = arcade.gui.UIFlatButton(text="Volver", width=260)
         v_box.add(back_btn)
         @back_btn.event("on_click")
-        def on_back(event): slide_to(self, GameMenuView())
+        def on_back(event):
+            _play_click()
+            slide_to(self, GameMenuView())
 
         anchor = arcade.gui.UIAnchorLayout()
         anchor.add(child=v_box, anchor_x="center_x", anchor_y="center_y")
@@ -666,9 +689,13 @@ class NewGameMenuView(arcade.View):
         confirm_box.add(yes_btn); confirm_box.add(no_btn)
 
         @yes_btn.event("on_click")
-        def on_yes(event): self.create_game(slot)
+        def on_yes(event):
+            _play_click()
+            self.create_game(slot)
         @no_btn.event("on_click")
-        def on_no(event): slide_to(self, NewGameMenuView())
+        def on_no(event):
+            _play_click()
+            slide_to(self, NewGameMenuView())
 
         anchor = arcade.gui.UIAnchorLayout()
         anchor.add(child=confirm_box, anchor_x="center_x", anchor_y="center_y")
@@ -732,6 +759,7 @@ class LoadMenuView(arcade.View):
                 btn = arcade.gui.UIFlatButton(text=f"Cargar {slot}", width=380); v_box.add(btn)
                 @btn.event("on_click")
                 def on_click(event, slot=slot):
+                    _play_click()
                     try:
                         data = load_game(slot)
                         if not data:
@@ -819,6 +847,7 @@ class RecordsView(arcade.View):
         v_box.add(back_btn)
         @back_btn.event("on_click")
         def on_back(event):
+            _play_click()
             self.window.show_view(GameMenuView())
 
         anchor = arcade.gui.UIAnchorLayout()
@@ -843,7 +872,7 @@ class RecordsView(arcade.View):
             # preparar líneas para dibujar
             self.table_lines = []
             if self.sb_scores:
-                header_line = f"{'Rk':<3} {'Score':>6} {'$':>8} {'Rep':>5} {'Tiempo':>9} {'Fecha':>19}"
+                header_line = f"{'Rk':<3} {'Resultado':<9} {'Score':>8} {'$':>8} {'Rep':>5} {'t_rem(s)':>9} {'Fecha (UTC)':>19}"
                 self.table_lines.append(header_line)
                 for idx, e in enumerate(self.sb_scores, start=1):
                     score = float(e.get("score", 0.0))
@@ -851,7 +880,8 @@ class RecordsView(arcade.View):
                     rep = float(e.get("reputation", 0.0))
                     time_rem = float(e.get("time_remaining", 0.0))
                     date = str(e.get("date", ""))[:19]
-                    line = f"{idx:<3} {int(score):>6} {money:>8.2f} {rep:>5.0f} {time_rem:>9.0f} {date:>19}"
+                    result = "Victoria" if str(e.get("finished", "")).lower() == "win" else "Derrota"
+                    line = f"{idx:<3} {result:<9} {score:>8.2f} {money:>8.2f} {rep:>5.0f} {time_rem:>9.0f} {date:>19}"
                     self.table_lines.append(line)
             else:
                 header_line = f"{'Rk':<3} {'Jugador':<14} {'Score':>6} {'$':>8} {'Rep':>5} {'Entregas':>9} {'A tiempo':>8} {'Fecha':>19}"
@@ -1127,7 +1157,7 @@ class MapPlayerViewWithPause(MapPlayerView):
 
 
 def main():
-    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=True)
     window.show_view(MainMenuView())
     arcade.run()
 
