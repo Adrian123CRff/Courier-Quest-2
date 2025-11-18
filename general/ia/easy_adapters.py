@@ -144,6 +144,21 @@ class EasyJobsAdapter(JobsAPI):
             pass
         return out
 
+    def list_active_jobs(self) -> List[str]:
+        out: List[str] = []
+        try:
+            for j in self._all_jobs():
+                if getattr(j, 'completed', False) or getattr(j, 'rejected', False):
+                    continue
+                if not getattr(j, 'accepted', False):
+                    continue
+                jid = getattr(j, 'id', None)
+                if jid:
+                    out.append(jid)
+        except Exception:
+            pass
+        return out
+
     def is_picked_up(self, job_id: str) -> bool:
         j = self._get_job(job_id)
         if not j:

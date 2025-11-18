@@ -65,8 +65,12 @@ class JobsAPI:
     """
 
     class _Job:
-        def __init__(self, job_id: str) -> None:
+        def __init__(self, job_id: str, pickup: tuple[int,int] | None = None, dropoff: tuple[int,int] | None = None, payout: float = 0.0, weight: float = 0.0) -> None:
             self.id = job_id
+            self.pickup = pickup
+            self.dropoff = dropoff
+            self.payout = float(payout or 0.0)
+            self.weight = float(weight or 0.0)
 
     def pick_random_available(self, rng: random.Random) -> Optional[str]:
         """Devuelve el id de un job disponible al azar o None."""

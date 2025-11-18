@@ -239,6 +239,13 @@ class UpdateManager:
                                 pass
                             return True
                 sx, sy = int(self.parent.player.cell_x), int(self.parent.player.cell_y)
+                try:
+                    if isinstance(self.parent.state, dict):
+                        self.parent.cpu_difficulty = str(self.parent.state.get('cpu_difficulty', getattr(self.parent, 'cpu_difficulty', 'easy')))
+                    else:
+                        self.parent.cpu_difficulty = str(getattr(self.parent.state, 'cpu_difficulty', getattr(self.parent, 'cpu_difficulty', 'easy')))
+                except Exception:
+                    pass
                 diff = str(getattr(self.parent, 'cpu_difficulty', 'easy') or 'easy').lower()
                 if diff == 'medium':
                     cfg = MediumConfig() if MediumConfig else CpuConfig(step_period_sec=0.20, retarget_timeout_sec=6.0, random_repick_prob=0.15, max_carry=1)
