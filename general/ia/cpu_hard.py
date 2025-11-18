@@ -11,7 +11,7 @@ Vec2I = Tuple[int, int]
 
 @dataclass
 class CpuConfigHard:
-    step_period_sec: float = 0.14
+    step_period_sec: float = 0.40
     retarget_timeout_sec: float = 5.0
     random_repick_prob: float = 0.20
     max_carry: int = 2
@@ -83,6 +83,8 @@ class HardCPUCourier:
     def grid_pos(self) -> Vec2I: return self.s.grid_pos
     @property
     def stamina(self) -> float: return float(getattr(self.stats, "stamina", self.s.stamina))
+    @property
+    def reputation(self) -> float: return float(getattr(self.stats, "reputation", self.s.reputation))
 
     def update(self, dt: float) -> None:
         self.s.time_since_last_step += float(dt)
@@ -102,14 +104,20 @@ class HardCPUCourier:
         pen = self._climate_penalty_value(cond, intensity)
         try:
             self.stats.update(dt, is_moving=bool(moved), input_active=False)
-            self.stats.consume_stamina(base_cost=0.5, weight=carry_w, weather_penalty=pen, intensity=intensity)
+            if moved:
+                self.stats.consume_stamina(base_cost=0.35, weight=carry_w, weather_penalty=pen, intensity=intensity)
         except Exception: pass
         self.s.stamina = self.stats.stamina
+        try:
+            self.s.reputation = float(getattr(self.stats, 'reputation', self.s.reputation))
+        except Exception:
+            pass
         self._opportunistic_actions()
 
     def _maybe_choose_target_job(self) -> None:
         repick = False
-        if self.s.current_job_id is None: repick = True
+        prev = self.s.current_job_id
+        if prev is None: repick = True
         elif self.s.time_since_job_pick >= self.cfg.retarget_timeout_sec: repick = True
         elif self.rng.random() < self.cfg.random_repick_prob: repick = True
         if not repick: return
@@ -326,7 +334,8 @@ class HardCPUCourier:
                         except Exception: w = 0.0
                         if w <= float(self.cfg.capacity_kg):
                             if self.jobs.pickup(jid_cur):
-                                self.s.carrying.append(jid_cur)
+                                if self.s.inventory.add(jid_cur, w):
+                                    self.s.carrying.append(jid_cur)
         jid = self.s.current_job_id
         if jid and jid in self.s.carrying:
             try:
@@ -348,6 +357,15 @@ class HardCPUCourier:
                     except Exception: self.s.inventory.remove(jid, 0.0)
                     try: self.s.carrying.remove(jid)
                     except Exception: pass
+                    try:
+                        self.stats.update_reputation('delivery_on_time')
+                        self.s.reputation = float(getattr(self.stats, 'reputation', self.s.reputation))
+                    except Exception:
+                        try:
+                            inc = float(getattr(self.world, 'reputation_gain_on_delivery')() or 0.0)
+                            self.s.reputation += inc
+                        except Exception:
+                            pass
                     try: self.s.money += float(pay or 0.0)
                     except Exception: pass
                     self.s.current_job_id = None

@@ -54,6 +54,13 @@ Segundo avance del proyecto de programacion, Estructura de Datos
 - saves/debug/slotX.sav.json Snapshots legibles para depuración
 data
 
++General/ ia
+-cpu_easy.py
+-cpu_medium.py
+-cpu_hard.py
+-easy_adapters.py
+
+
 - puntajes.json Records globales persistentes (independientes de los slots)
 
 +Resources
@@ -62,6 +69,33 @@ data
 
 
 ## Descripciones de Clases:
+
+## Carpeta ia
+
+- cpu_easy.py
+  - Propósito: IA fácil que selecciona trabajos al azar, se mueve con sesgo Manhattan hacia pickup/dropoff y ejecuta acciones oportunistas.
+  - Algoritmos: generación de vecinos y filtro de transitabilidad; sesgo Manhattan sobre hasta 4 vecinos; tolerancia de adyacencia para pickups/dropoffs.
+  - Complejidad: movimiento O(1) por paso; acciones oportunistas O(k) según trabajos en celda; selección de trabajo típicamente O(1).
+  - Referencias: general/ia/cpu_easy.py:200 (update), general/ia/cpu_easy.py:248 (_ensure_job_target), general/ia/cpu_easy.py:289 (_random_step), general/ia/cpu_easy.py:345 (_opportunistic_actions)
+
+- cpu_medium.py
+  - Propósito: IA media que elige trabajos por una función de valor (payout vs costo aproximado) y avanza de forma codiciosa hacia el objetivo.
+  - Algoritmos: scoring lineal por trabajo; distancia Manhattan; selección greedy del mejor vecino con penalización climática.
+  - Complejidad: selección O(m) sobre trabajos disponibles; movimiento O(1) por paso; acciones oportunistas O(k).
+  - Referencias: general/ia/cpu_medium.py:92 (update), general/ia/cpu_medium.py:131 (_choose_best_job), general/ia/cpu_medium.py:168 (_greedy_step), general/ia/cpu_medium.py:198 (_opportunistic_actions)
+
+- cpu_hard.py
+  - Propósito: IA difícil con pathfinding (Dijkstra) y selección de trabajos basada en coste real de ruta hacia pickup y dropoff.
+  - Algoritmos: preselección por distancia Manhattan y ordenación; Dijkstra con heap; mantenimiento de camino y avance paso a paso.
+  - Complejidad: preselección O(m log m); coste de ruta O(E log V) por candidato (k≤5); movimiento O(1); acciones oportunistas O(k).
+  - Referencias: general/ia/cpu_hard.py:85 (update), general/ia/cpu_hard.py:128 (_choose_best_job), general/ia/cpu_hard.py:214 (_dijkstra), general/ia/cpu_hard.py:258 (_ensure_path_to_target), general/ia/cpu_hard.py:282 (_step_along_path), general/ia/cpu_hard.py:305 (_opportunistic_actions)
+
+- easy_adapters.py
+  - Propósito: adaptadores entre la IA y sistemas reales de trabajos, clima y mapa (EasyJobsAdapter, EasyWorldAdapter).
+  - Algoritmos: filtrado lineal de trabajos (list_available_jobs, get_pickups_at), selección aleatoria, distancia Manhattan y penalización por clima.
+  - Complejidad: filtrados O(n) sobre cantidad de trabajos; utilidades O(1); dropoff puede ser O(n) al limpiar inventario humano.
+
+
 ## Carpeta Game
 
 -adts.py

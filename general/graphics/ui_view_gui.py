@@ -598,6 +598,8 @@ class InstructionsView(arcade.View):
             "Inventario: usa A/D o los botones del panel para navegar.",
             "El clima y el peso afectan tu velocidad.",
             "Planifica rutas desde el panel derecho de pedidos activos.",
+            "Tecla 'S' en teclado se utiliza para el ordenamiento del inventario del usuario.",
+            "Tecla 'C' en teclado para cancelar pedidos ya aceptados.",
         ]
 
     def on_show(self):
@@ -1263,7 +1265,11 @@ class MapPlayerViewWithPause(MapPlayerView):
 
 
 def main():
-    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=True)
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=False)
+    try:
+        window.set_mouse_visible(True)
+    except Exception:
+        pass
     window.show_view(MainMenuView())
     arcade.run()
 

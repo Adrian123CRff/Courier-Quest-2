@@ -11,7 +11,11 @@ SCREEN_TITLE = "Courier Quest"
 
 
 def main():
-    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=True, resizable=True)
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, fullscreen=False, resizable=True)
+    try:
+        window.set_mouse_visible(True)
+    except Exception:
+        pass
     window.show_view(MainMenuView())
     arcade.run()
 
