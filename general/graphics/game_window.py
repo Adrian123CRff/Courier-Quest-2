@@ -30,59 +30,7 @@ from .drawing_utils import _draw_rect_lrbt_filled, _draw_rect_lrbt_outline
 
 from ..game.game_manager import GameManager
 from ..game.jobs_manager import JobManager
-from ..ia.cpu_easy import EasyCPUCourier, CpuConfig
-try:
-    from ..ia.easy_adapters import EasyJobsAdapter, EasyWorldAdapter
-except Exception:
-    class EasyJobsAdapter:
-        def __init__(self, view): self.view = view
-        def pick_random_available(self, rng):
-            jm = getattr(self.view, "job_manager", None); gm = getattr(self.view, "game_manager", None)
-            if not jm: return None
-            try: now = gm.get_game_time() if gm and hasattr(gm, "get_game_time") else 0.0
-            except Exception: now = 0.0
-            av = jm.get_available_jobs(now); av = [j for j in av if not getattr(j, "rejected", False) and not getattr(j, "completed", False)]
-            if not av: return None
-            j = rng.choice(av); return getattr(j, "id", None)
-        def get_pickups_at(self, cell):
-            jm = getattr(self.view, "job_manager", None)
-            if not jm: return []
-            x, y = int(cell[0]), int(cell[1]); out = []
-            class _Wrap: 
-                def __init__(self, jid): self.id = jid
-            for j in jm.all_jobs():
-                if getattr(j, "completed", False) or getattr(j, "rejected", False): continue
-                try: px, py = j.pickup
-                except Exception: px, py = None, None
-                if px == x and py == y:
-                    jid = getattr(j, "id", None)
-                    if jid: out.append(_Wrap(jid))
-            return out
-        def is_dropoff_here(self, job_id, cell):
-            jm = getattr(self.view, "job_manager", None); j = jm.get_job(job_id) if jm else None
-            if not j: return False
-            try: dx, dy = j.dropoff
-            except Exception: dx, dy = None, None
-            return dx == int(cell[0]) and dy == int(cell[1])
-        def pickup(self, job_id):
-            jm = getattr(self.view, "job_manager", None); j = jm.get_job(job_id) if jm else None
-            if not j: return False
-            try:
-                if not getattr(j, "accepted", False): jm.accept_job(job_id)
-                j.picked_up = True; j.dropoff_visible = True; return True
-            except Exception: return False
-        def dropoff(self, job_id):
-            jm = getattr(self.view, "job_manager", None); j = jm.get_job(job_id) if jm else None
-            if not j: return None
-            try:
-                if not getattr(j, "picked_up", False): return None
-                try: base = float(getattr(j, "raw", {}).get("payout", getattr(j, "payout", 0.0) or 0.0))
-                except Exception: base = 0.0
-                j.completed = True; return base
-            except Exception: return None
-    class EasyWorldAdapter:
-        def base_move_cost(self): return 1.0
-        def reputation_gain_on_delivery(self): return 1.0
+from ..ia.cpu_easy import CpuConfig
 
 # Intento de import (para partidas nuevas) — no falla si no existe
 try:
@@ -454,24 +402,7 @@ class MapPlayerView(View):
                 except Exception:
                     pass
 
-                # -------- fábrica por dificultad (misma IA, distinta config) -------
-                diff = (self.cpu_difficulty or "easy").lower()
-                if diff == "easy":
-                    cfg = CpuConfig(step_period_sec=0.18, retarget_timeout_sec=8.0, random_repick_prob=0.10, max_carry=1)
-                elif diff == "medium":
-                    cfg = CpuConfig(step_period_sec=0.14, retarget_timeout_sec=6.0, random_repick_prob=0.15, max_carry=1)
-                else:  # hard
-                    cfg = CpuConfig(step_period_sec=0.10, retarget_timeout_sec=5.0, random_repick_prob=0.20, max_carry=2)
-
-                self.cpu_agent = EasyCPUCourier(
-                    self.game_map.is_walkable,
-                    EasyJobsAdapter(self),
-                    EasyWorldAdapter(self),
-                    target_provider=lambda: (int(self.player.cell_x), int(self.player.cell_y)),
-                    initial_grid_pos=(sx, sy),
-                    initial_reputation=int(getattr(self.player_stats, 'reputation', 70)),
-                    config=cfg
-                )
+                # Instanciación del CPU se delega al UpdateManager
             except Exception as e:
                 print(f"[CPU] Error inicializando CPU: {e}")
         except Exception as e:

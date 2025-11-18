@@ -133,6 +133,10 @@ class JobsLogic:
                 if abs(int(jpx) - px) + abs(int(jpy) - py) <= 1:
                     job.picked_up = True
                     job.dropoff_visible = True
+                    try:
+                        setattr(job, "carrier", "player")
+                    except Exception:
+                        pass
                     picked_any = True
 
                     inventory = v.state.get("inventory") if isinstance(v.state, dict) else getattr(v.state, "inventory", None)
@@ -163,6 +167,13 @@ class JobsLogic:
                     continue
                 if getattr(job, "completed", False):
                     continue
+                # sólo permitir entrega si el portador es el jugador
+                try:
+                    carrier = getattr(job, "carrier", None)
+                    if carrier not in (None, "player"):
+                        continue
+                except Exception:
+                    pass
 
                 dx, dy = v._get_job_dropoff_coords(job)
                 if dx is None or dy is None:

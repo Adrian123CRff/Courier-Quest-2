@@ -111,6 +111,39 @@ class EasyJobsAdapter(JobsAPI):
         except Exception:
             return 0.0
 
+    def get_job_info(self, job_id: str) -> Optional[JobsAPI._Job]:
+        j = self._get_job(job_id)
+        if not j:
+            return None
+        try:
+            px = self._pickup_of(j)
+            dx = self._dropoff_of(j)
+            if not px or not dx:
+                return None
+            payout = float(getattr(j, 'raw', {}).get('payout', getattr(j, 'payout', 0.0) or 0.0))
+            weight = float(getattr(j, 'raw', {}).get('weight', getattr(j, 'weight', 0.0) or 0.0))
+            jid = getattr(j, 'id', None)
+            if not jid:
+                return None
+            # Reusar contenedor JobsAPI._Job compatible con Medium/Hard
+            obj = JobsAPI._Job(jid, (int(px[0]), int(px[1])), (int(dx[0]), int(dx[1])), payout, weight)
+            return obj
+        except Exception:
+            return None
+
+    def list_available_jobs(self) -> List[str]:
+        out: List[str] = []
+        try:
+            for j in self._all_jobs():
+                if getattr(j, 'completed', False) or getattr(j, 'rejected', False):
+                    continue
+                jid = getattr(j, 'id', None)
+                if jid:
+                    out.append(jid)
+        except Exception:
+            pass
+        return out
+
     def is_picked_up(self, job_id: str) -> bool:
         j = self._get_job(job_id)
         if not j:
@@ -125,9 +158,16 @@ class EasyJobsAdapter(JobsAPI):
         if not j:
             return False
         if getattr(j, "completed", False) or getattr(j, "picked_up", False):
+            # si está recogido por otro agente, no permitir
+            if getattr(j, "carrier", None) not in (None, "cpu"):
+                return False
             return False
         try:
             j.picked_up = True
+            try:
+                setattr(j, "carrier", "cpu")
+            except Exception:
+                pass
             return True
         except Exception:
             return False
@@ -138,11 +178,15 @@ class EasyJobsAdapter(JobsAPI):
             return None
         if getattr(j, "completed", False) or not getattr(j, "picked_up", False):
             return None
+        # sólo el CPU puede entregar si él es el portador
+        if getattr(j, "carrier", None) not in ("cpu", None):
+            return None
         # Marcar completado (CPU no suma dinero al humano).
         try:
             j.completed = True
             setattr(j, "cpu_completed", True)
             setattr(j, "completed_by", "cpu")
+            setattr(j, "carrier", "cpu")
         except Exception:
             pass
         # Si quieres “bloquear” el inventario del humano por si acaso:
@@ -201,3 +245,39 @@ class EasyWorldAdapter(WorldAPI):
         except Exception:
             pass
         return {"condition": self.current_weather(), "intensity": 1.0, "multiplier": 1.0}
+
+    def get_weather_penalty(self, pos: Vec2I) -> float:
+        try:
+            cond = self.current_weather().lower()
+            intensity = 1.0
+            try:
+                st = self.get_weather_state()
+                intensity = float(st.get('intensity', 1.0) or 1.0)
+            except Exception:
+                intensity = 1.0
+            base = 0.0
+            if ('rain' in cond) or ('lluv' in cond):
+                base = 0.5
+            elif ('storm' in cond) or ('tormenta' in cond):
+                base = 0.9
+            elif ('snow' in cond) or ('nieve' in cond):
+                base = 0.7
+            return float(base) * float(intensity)
+        except Exception:
+            return 0.0
+
+    def manhattan_distance(self, pos1: Vec2I, pos2: Vec2I) -> int:
+        try:
+            x1, y1 = int(pos1[0]), int(pos1[1])
+            x2, y2 = int(pos2[0]), int(pos2[1])
+            return abs(x1 - x2) + abs(y1 - y2)
+        except Exception:
+            return 0
+
+    def is_walkable(self, pos: Vec2I) -> bool:
+        try:
+            if self._view and hasattr(self._view, 'game_map'):
+                return bool(self._view.game_map.is_walkable(int(pos[0]), int(pos[1])))
+        except Exception:
+            return True
+        return True

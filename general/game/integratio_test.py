@@ -13,6 +13,10 @@ from game.player_stats import PlayerStats
 from game.weather_markov import WeatherMarkov
 from game.score_system import ScoreSystem
 from game.undo_system import UndoSystem
+from general.graphics.update_manager import UpdateManager
+from general.ia.cpu_easy import EasyCPUCourier
+from general.ia.cpu_medium import MediumCPUCourier
+from general.ia.cpu_hard import HardCPUCourier
 
 
 class TestCourierQuestIntegration(unittest.TestCase):
@@ -381,8 +385,225 @@ class TestCourierQuestIntegration(unittest.TestCase):
         self.assertAlmostEqual(stamina_consumed, expected_consumption, places=2)
 
         print("✅ Escenario integrado: OK")
+        
+        
+    def test_10_cpu_agent_instantiation_per_difficulty(self):
+        class DummyGameMap:
+            def __init__(self):
+                self.width = 50
+                self.height = 50
+            def is_walkable(self, x, y):
+                return True
+        class DummyPlayer:
+            def __init__(self):
+                self.cell_x = 10
+                self.cell_y = 10
+                self.moving = False
+            def update(self, dt, player_stats=None, weather_system=None, inventory=None):
+                return None
+        class DummyNotifications:
+            def update_timers(self, dt):
+                return None
+        class DummyGM:
+            def update(self, dt):
+                return None
+            def get_game_time(self):
+                return 0.0
+            def get_game_time(self):
+                return 0.0
 
+        def make_view(diff):
+            class V:
+                pass
+            v = V()
+            v.cpu_agent = None
+            v.cpu_difficulty = diff
+            v.state = {"cpu_difficulty": diff}
+            v.game_map = DummyGameMap()
+            v.player = DummyPlayer()
+            v.notifications = DummyNotifications()
+            v.active_notification = None
+            v.notification_timer = 0.0
+            v._ensure_inventory = lambda: None
+            v.show_notification = lambda msg: None
+            v._get_job_pickup_coords = lambda job: tuple(getattr(job, 'raw', {}).get('pickup', getattr(job, 'pickup', [0, 0])))
+            v._get_job_dropoff_coords = lambda job: tuple(getattr(job, 'raw', {}).get('dropoff', getattr(job, 'dropoff', [0, 0])))
+            v._last_input_time = 0
+            v.INPUT_ACTIVE_WINDOW = 0.1
+            v.player_stats = PlayerStats()
+            v.weather_markov = WeatherMarkov(debug=True)
+            v.job_manager = JobManager()
+            v.game_manager = DummyGM()
+            v.jobs_logic = type("JL", (), {
+                "pickup_nearby": lambda self: False,
+                "synchronize_money_with_completed_jobs": lambda self: None,
+                "remove_job_from_inventory": lambda self, job: None,
+                "recompute_money_from_jobs": lambda self: None,
+            })()
+            v.endgame = type("EG", (), {"check_and_maybe_end": lambda self: None, "_compute_goal": lambda self: 0.0})()
+            v.weather = type("W", (), {"get_current_condition_name": lambda self: "clear", "update_and_render": lambda self, dt: None})()
+            v._get_job_payout = lambda job: float(getattr(job, "payout", 0.0) or 0.0)
+            v._parse_money = lambda x: float(x or 0.0)
+            return v
 
+        view_easy = make_view("easy")
+        um_easy = UpdateManager(view_easy)
+        um_easy.on_update(0.5)
+        self.assertIsInstance(view_easy.cpu_agent, EasyCPUCourier)
+
+        view_med = make_view("medium")
+        um_med = UpdateManager(view_med)
+        um_med.on_update(0.5)
+        self.assertIsInstance(view_med.cpu_agent, MediumCPUCourier)
+
+        view_hard = make_view("hard")
+        um_hard = UpdateManager(view_hard)
+        um_hard.on_update(0.5)
+        self.assertIsInstance(view_hard.cpu_agent, HardCPUCourier)
+
+    def test_11_cpu_agent_switch_between_sessions(self):
+        class DummyGameMap:
+            def is_walkable(self, x, y):
+                return True
+        class DummyPlayer:
+            def __init__(self):
+                self.cell_x = 5
+                self.cell_y = 5
+                self.moving = False
+            def update(self, dt, player_stats=None, weather_system=None, inventory=None):
+                return None
+        class DummyNotifications:
+            def update_timers(self, dt):
+                return None
+        class DummyGM:
+            def update(self, dt):
+                return None
+
+        class V:
+            pass
+
+        v1 = V()
+        v1.cpu_agent = None
+        v1.cpu_difficulty = "easy"
+        v1.state = {"cpu_difficulty": "easy"}
+        v1.game_map = DummyGameMap()
+        v1.player = DummyPlayer()
+        v1.notifications = DummyNotifications()
+        v1.active_notification = None
+        v1.notification_timer = 0.0
+        v1._ensure_inventory = lambda: None
+        v1.show_notification = lambda msg: None
+        v1._get_job_pickup_coords = lambda job: tuple(getattr(job, 'raw', {}).get('pickup', getattr(job, 'pickup', [0, 0])))
+        v1._get_job_dropoff_coords = lambda job: tuple(getattr(job, 'raw', {}).get('dropoff', getattr(job, 'dropoff', [0, 0])))
+        v1._last_input_time = 0
+        v1.INPUT_ACTIVE_WINDOW = 0.1
+        v1.player_stats = PlayerStats()
+        v1.weather_markov = WeatherMarkov(debug=True)
+        v1.job_manager = JobManager()
+        v1.game_manager = DummyGM()
+        v1.jobs_logic = type("JL", (), {
+            "pickup_nearby": lambda self: False,
+            "synchronize_money_with_completed_jobs": lambda self: None,
+            "remove_job_from_inventory": lambda self, job: None,
+            "recompute_money_from_jobs": lambda self: None,
+        })()
+        v1.endgame = type("EG", (), {"check_and_maybe_end": lambda self: None, "_compute_goal": lambda self: 0.0})()
+        v1.weather = type("W", (), {"get_current_condition_name": lambda self: "clear", "update_and_render": lambda self, dt: None})()
+        um1 = UpdateManager(v1)
+        um1.on_update(0.5)
+        self.assertIsInstance(v1.cpu_agent, EasyCPUCourier)
+
+        v2 = V()
+        v2.cpu_agent = None
+        v2.cpu_difficulty = "medium"
+        v2.state = {"cpu_difficulty": "medium"}
+        v2.game_map = DummyGameMap()
+        v2.player = DummyPlayer()
+        v2.notifications = DummyNotifications()
+        v2.active_notification = None
+        v2.notification_timer = 0.0
+        v2._ensure_inventory = lambda: None
+        v2.show_notification = lambda msg: None
+        v2._get_job_pickup_coords = lambda job: tuple(getattr(job, 'raw', {}).get('pickup', getattr(job, 'pickup', [0, 0])))
+        v2._get_job_dropoff_coords = lambda job: tuple(getattr(job, 'raw', {}).get('dropoff', getattr(job, 'dropoff', [0, 0])))
+        v2._last_input_time = 0
+        v2.INPUT_ACTIVE_WINDOW = 0.1
+        v2.player_stats = PlayerStats()
+        v2.weather_markov = WeatherMarkov(debug=True)
+        v2.job_manager = JobManager()
+        v2.game_manager = DummyGM()
+        v2.jobs_logic = type("JL", (), {
+            "pickup_nearby": lambda self: False,
+            "synchronize_money_with_completed_jobs": lambda self: None,
+            "remove_job_from_inventory": lambda self, job: None,
+            "recompute_money_from_jobs": lambda self: None,
+        })()
+        v2.endgame = type("EG", (), {"check_and_maybe_end": lambda self: None, "_compute_goal": lambda self: 0.0})()
+        v2.weather = type("W", (), {"get_current_condition_name": lambda self: "clear", "update_and_render": lambda self, dt: None})()
+        um2 = UpdateManager(v2)
+        um2.on_update(0.5)
+        self.assertIsInstance(v2.cpu_agent, MediumCPUCourier)
+
+    def test_12_cpu_agent_pickup_when_on_pickup_cell(self):
+        class DummyGameMap:
+            def is_walkable(self, x, y):
+                return True
+        class DummyPlayer:
+            def __init__(self):
+                self.cell_x = 3
+                self.cell_y = 3
+                self.moving = False
+            def update(self, dt, player_stats=None, weather_system=None, inventory=None):
+                return None
+        class DummyNotifications:
+            def update_timers(self, dt):
+                return None
+        class DummyGM:
+            def update(self, dt):
+                return None
+
+        v = type("V", (), {})()
+        v.cpu_agent = None
+        v.cpu_difficulty = "medium"
+        v.state = {"cpu_difficulty": "medium"}
+        v.game_map = DummyGameMap()
+        v.player = DummyPlayer()
+        v.notifications = DummyNotifications()
+        v.active_notification = None
+        v.notification_timer = 0.0
+        v._ensure_inventory = lambda: None
+        v.show_notification = lambda msg: None
+        v._get_job_pickup_coords = lambda job: tuple(getattr(job, 'raw', {}).get('pickup', getattr(job, 'pickup', [0, 0])))
+        v._get_job_dropoff_coords = lambda job: tuple(getattr(job, 'raw', {}).get('dropoff', getattr(job, 'dropoff', [0, 0])))
+        v._last_input_time = 0
+        v.INPUT_ACTIVE_WINDOW = 0.1
+        v.player_stats = PlayerStats()
+        v.weather_markov = WeatherMarkov(debug=True)
+        v.job_manager = JobManager()
+        v.game_manager = DummyGM()
+        v.jobs_logic = type("JL", (), {
+            "pickup_nearby": lambda self: False,
+            "synchronize_money_with_completed_jobs": lambda self: None,
+            "remove_job_from_inventory": lambda self, job: None,
+            "recompute_money_from_jobs": lambda self: None,
+        })()
+        v.endgame = type("EG", (), {"check_and_maybe_end": lambda self: None, "_compute_goal": lambda self: 0.0})()
+        v.weather = type("W", (), {"get_current_condition_name": lambda self: "clear", "update_and_render": lambda self, dt: None})()
+
+        job_data = {"id": "CPU-TEST-JOB", "pickup": [3, 3], "dropoff": [4, 4], "weight": 1.0, "payout": 50, "priority": 1, "release_time": 0.0}
+        v.job_manager.add_job_from_raw(job_data)
+
+        um = UpdateManager(v)
+        um.on_update(0.5)
+        agent = v.cpu_agent
+        self.assertIsInstance(agent, MediumCPUCourier)
+        for _ in range(3):
+            um.on_update(0.05)
+        agent = v.cpu_agent
+        ok = agent.jobs.pickup("CPU-TEST-JOB")
+        self.assertTrue(ok)
+        job = v.job_manager.get_job("CPU-TEST-JOB")
+        self.assertTrue(getattr(job, "picked_up", False))
 def run_comprehensive_test_suite():
     """Ejecuta la suite completa de tests"""
     print("🚀 INICIANDO TEST SUITE INTEGRAL PARA COURIER QUEST")

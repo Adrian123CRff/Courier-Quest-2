@@ -20,6 +20,8 @@ class CpuConfig:
     max_carry: int = 1
     recover_per_sec: float = 0.4
     capacity_kg: float = 10.0
+    use_pure_random_move: bool = False
+    movement_bias_prob: float = 0.50
 
 
 @dataclass
@@ -307,13 +309,19 @@ class EasyCPUCourier:
             target = None
 
         if target is not None:
-            tx, ty = int(target[0]), int(target[1])
-            def md(p: Vec2I) -> int:
-                return abs(p[0] - tx) + abs(p[1] - ty)
-            walkable.sort(key=md)
-            best = md(walkable[0])
-            candidates = [p for p in walkable if md(p) == best]
-            next_pos = self.rng.choice(candidates)
+            if getattr(self.cfg, "use_pure_random_move", False):
+                next_pos = self.rng.choice(walkable)
+            else:
+                if self.rng.random() < float(getattr(self.cfg, "movement_bias_prob", 0.30)):
+                    tx, ty = int(target[0]), int(target[1])
+                    def md(p: Vec2I) -> int:
+                        return abs(p[0] - tx) + abs(p[1] - ty)
+                    walkable.sort(key=md)
+                    best = md(walkable[0])
+                    candidates = [p for p in walkable if md(p) == best]
+                    next_pos = self.rng.choice(candidates)
+                else:
+                    next_pos = self.rng.choice(walkable)
         else:
             next_pos = self.rng.choice(walkable)
 

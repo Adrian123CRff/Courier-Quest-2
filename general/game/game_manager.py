@@ -442,6 +442,13 @@ class GameManager:
                 dx, dy = self._get_job_dropoff_coords(job)
                 if dx is None or dy is None:
                     continue
+                # sólo permitir entrega si el portador es el jugador
+                try:
+                    carrier = getattr(job, "carrier", None)
+                    if carrier not in (None, "player"):
+                        continue
+                except Exception:
+                    pass
                 if abs(int(dx) - tile_x) + abs(int(dy) - tile_y) <= 1:
                     current = self.get_game_time()
                     deadline = getattr(job, "raw", {}).get("deadline_timestamp", None)
@@ -510,12 +517,20 @@ class GameManager:
                     pickup_pos = tuple(job.pickup if hasattr(job, "pickup") else ())
                 if pickup_pos == (tile_x, tile_y):
                     job.picked_up, job.dropoff_visible = True, True
+                    try:
+                        setattr(job, "carrier", "player")
+                    except Exception:
+                        pass
                     self.logger.info(f"Package {job.id} picked up at {tile_x},{tile_y}")
                     return True
                 try:
                     px, py = pickup_pos
                     if (tile_x, tile_y) in [(px+1,py),(px-1,py),(px,py+1),(px,py-1)]:
                         job.picked_up, job.dropoff_visible = True, True
+                        try:
+                            setattr(job, "carrier", "player")
+                        except Exception:
+                            pass
                         self.logger.info(f"Package {job.id} picked up adjacent to {pickup_pos}")
                         return True
                 except Exception:
