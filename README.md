@@ -1,5 +1,5 @@
 # Courier-Quest-2
-Segundo avance del proyecto de programacion, Estructura de Datos
+Segundo parte del proyecto de programacion, Estructura de Datos, Courier-Quest-2.
 ## Estructura general del proyecto
 
 
